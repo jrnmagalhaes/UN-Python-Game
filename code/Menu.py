@@ -8,8 +8,6 @@ from code.Const import (WIN_WIDTH, WIN_HEIGHT, FPS, MENU_BG, MENU_OPTION, MENU_C
 
 
 class Menu:
-    """Tela inicial: título, opções navegáveis e bloco de comandos."""
-
     def __init__(self, window: pygame.Surface):
         self.window = window
         self.clock = pygame.time.Clock()
@@ -22,7 +20,6 @@ class Menu:
         self.selected = 0
 
     def run(self) -> str:
-        """Mostra o menu até o jogador escolher uma opção; retorna o texto dela."""
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -42,11 +39,9 @@ class Menu:
     def draw(self):
         self.window.blit(self.background, (0, 0))
 
-        # Título com sombra
         self._text(self.font_title, 'SURVIVE', (0, 0, 0), (WIN_WIDTH // 2 + 4, 104))
         self._text(self.font_title, 'SURVIVE', C_BLOOD, (WIN_WIDTH // 2, 100))
 
-        # Opções
         for i, option in enumerate(MENU_OPTION):
             y = 250 + i * 60
             if i == self.selected:
@@ -54,7 +49,6 @@ class Menu:
             else:
                 self._text(self.font_option, option, C_WHITE, (WIN_WIDTH // 2, y))
 
-        # Bloco de comandos
         panel = pygame.Surface((420, 40 + len(MENU_COMMANDS) * 28), pygame.SRCALPHA)
         panel.fill(C_PANEL)
         panel_rect = panel.get_rect(midbottom=(WIN_WIDTH // 2, WIN_HEIGHT - 20))
