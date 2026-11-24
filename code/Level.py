@@ -3,13 +3,19 @@ import sys
 import pygame
 
 from code.Const import (WIN_WIDTH, C_BLACK, HUD_HEIGHT, FPS, MAX_DT, LEVEL_COUNT, LEVEL_WIN, LEVEL_QUIT, FONT_NAME,
-                        TILE_SIZE,
-                        C_WHITE, C_GRAY, C_YELLOW, C_HUD_BG, C_MARK_ENEMY, C_MARK_ROUTE,
-                        C_DEBUG_SOLID, C_DEBUG_BODY, C_DEBUG_ATTACK, C_DEBUG_ATTACK_IDLE,
-                        KEY_BACK, KEY_DEBUG_WIN, KEY_DEBUG_HITBOX)
+                        C_WHITE, C_GRAY, C_YELLOW, C_BLOOD, C_PANEL, C_HUD_BG,
+                        C_DEBUG_SOLID, C_DEBUG_BODY, C_DEBUG_ATTACK, C_DEBUG_ATTACK_IDLE, C_DEBUG_ENEMY, C_DEBUG_BACK,
+                        BACKSTAB_ANGLE, PLAYER_ATTACK_REACH, SEEN_DELAY, CLEAR_DELAY, HINT_TIME,
+                        MSG_SEEN, MSG_CLEAR, MSG_FRONT, KEY_BACK, KEY_DEBUG_WIN, KEY_DEBUG_HITBOX)
+from code.Enemy import Enemy
 from code.LevelData import LEVELS
+from code.Mediator import Mediator
 from code.Player import Player
 from code.TileMap import TileMap
+
+STATE_PLAY = 'play'
+STATE_SEEN = 'seen'
+STATE_CLEAR = 'clear'
 
 
 def format_time(ms: int) -> str:
@@ -27,15 +33,24 @@ class Level:
         self.elapsed_ms = 0
         self.clock = pygame.time.Clock()
         self.font_hud = pygame.font.SysFont(FONT_NAME, 20, bold=True)
-        self.font_mark = pygame.font.SysFont(FONT_NAME, 14, bold=True)
         self.font_hint = pygame.font.SysFont(FONT_NAME, 14)
-        self.route_layer = self._build_route_layer()
+        self.font_msg = pygame.font.SysFont(FONT_NAME, 44, bold=True)
+        self.font_tip = pygame.font.SysFont(FONT_NAME, 18, bold=True)
+        self.view_layer = pygame.Surface(window.get_size(), pygame.SRCALPHA)
         self.show_hitbox = False
+        self.reset()
+
+    def reset(self):
         self.player = Player(self.tilemap.player_start, self.tilemap.solid_rects)
+        self.enemies = [Enemy(e['route'], e['loop'], e['pause'], seed=i) for i, e in enumerate(self.tilemap.enemies)]
+        self.state = STATE_PLAY
+        self.state_timer = 0.0
+        self.watcher = None
+        self.tip_timer = 0.0
 
     @property
     def enemies_left(self) -> int:
-        return len(self.tilemap.enemies)
+        return sum(1 for e in self.enemies if e.alive)
 
     def run(self) -> str:
         self.clock.tick()
@@ -52,46 +67,96 @@ class Level:
                         return LEVEL_WIN
                     if event.key in KEY_DEBUG_HITBOX:
                         self.show_hitbox = not self.show_hitbox
-                self.player.handle_event(event)
-            self.player.update(self.dt)
+                if self.state == STATE_PLAY:
+                    self.player.handle_event(event)
+            if self.update(self.dt):
+                return LEVEL_WIN
             self.draw()
             pygame.display.flip()
             ms = self.clock.tick(FPS)
-            self.elapsed_ms += ms
+            if self.state != STATE_CLEAR:
+                self.elapsed_ms += ms
             self.dt = min(ms / 1000, MAX_DT)
+
+    def update(self, dt: float) -> bool:
+        self.tip_timer = max(0.0, self.tip_timer - dt)
+        if self.state == STATE_PLAY:
+            self.player.update(dt)
+            for enemy in self.enemies:
+                enemy.update(dt)
+            killed, blocked = Mediator.resolve_attack(self.player, self.enemies)
+            if blocked and not killed:
+                self.tip_timer = HINT_TIME
+            if self.enemies_left == 0:
+                self.state = STATE_CLEAR
+                self.state_timer = CLEAR_DELAY
+                return False
+            watcher = Mediator.find_watcher(self.player, self.enemies)
+            if watcher:
+                watcher.alert(self.player.pos)
+                self.watcher = watcher
+                self.state = STATE_SEEN
+                self.state_timer = SEEN_DELAY
+        elif self.state == STATE_SEEN:
+            self.watcher.update(dt)
+            self.state_timer -= dt
+            if self.state_timer <= 0:
+                self.reset()
+        elif self.state == STATE_CLEAR:
+            for enemy in self.enemies:
+                enemy.update(dt)
+            self.state_timer -= dt
+            return self.state_timer <= 0
+        return False
 
     def draw(self):
         self.window.fill(C_BLACK)
         self.window.blit(self.tilemap.surface, self.tilemap.rect)
-        self.window.blit(self.route_layer, (0, 0))
-        self._draw_markers()
+        for enemy in self.enemies:
+            enemy.draw_floor(self.window)
+        self.view_layer.fill((0, 0, 0, 0))
+        for enemy in self.enemies:
+            enemy.draw_view(self.view_layer)
+        self.window.blit(self.view_layer, (0, 0))
+        for enemy in self.enemies:
+            enemy.draw(self.window)
         self.player.draw(self.window)
         if self.show_hitbox:
             self._draw_hitboxes()
         self._draw_hud()
+        if self.state == STATE_SEEN:
+            self._draw_banner(MSG_SEEN, C_BLOOD)
+        elif self.state == STATE_CLEAR:
+            self._draw_banner(MSG_CLEAR, C_YELLOW)
+        elif self.tip_timer > 0:
+            tip = self.font_tip.render(MSG_FRONT, True, C_YELLOW)
+            pos = self.player.pos
+            self.window.blit(tip, tip.get_rect(midbottom=(round(pos.x), round(pos.y) - 30)))
 
-    def _build_route_layer(self) -> pygame.Surface:
-        layer = pygame.Surface(self.window.get_size(), pygame.SRCALPHA)
-        color = (*C_MARK_ROUTE, 150)
-        for enemy in self.tilemap.enemies:
-            route = enemy['route']
-            points = route + [route[0]] if enemy['loop'] else route
-            if len(points) > 1:
-                pygame.draw.lines(layer, color, False, points, 3)
-            for p in route:
-                pygame.draw.circle(layer, color, p, 5)
-        return layer
-
-    def _draw_markers(self):
-        radius = TILE_SIZE // 2 - 6
-        for i, enemy in enumerate(self.tilemap.enemies, start=1):
-            start = enemy['route'][0]
-            pygame.draw.circle(self.window, C_MARK_ENEMY, start, radius)
-            self._text(self.font_mark, f'E{i}', C_WHITE, start)
+    def _draw_banner(self, text: str, color):
+        surf = self.font_msg.render(text, True, color)
+        rect = surf.get_rect(center=self.tilemap.rect.center)
+        panel = pygame.Surface((self.tilemap.rect.width, rect.height + 30), pygame.SRCALPHA)
+        panel.fill(C_PANEL)
+        self.window.blit(panel, panel.get_rect(center=rect.center))
+        self.window.blit(surf, rect)
 
     def _draw_hitboxes(self):
         for wall in self.tilemap.solid_rects:
             pygame.draw.rect(self.window, C_DEBUG_SOLID, wall, 1)
+        layer = pygame.Surface(self.window.get_size(), pygame.SRCALPHA)
+        reach = PLAYER_ATTACK_REACH * 2
+        for enemy in self.enemies:
+            if not enemy.alive:
+                continue
+            back = -enemy.facing
+            half = 180 - BACKSTAB_ANGLE
+            arc = [enemy.pos] + [enemy.pos + back.rotate(-half + 2 * half * i / 8) * reach for i in range(9)]
+            pygame.draw.polygon(layer, C_DEBUG_BACK, arc)
+        self.window.blit(layer, (0, 0))
+        for enemy in self.enemies:
+            if enemy.alive:
+                pygame.draw.rect(self.window, C_DEBUG_ENEMY, enemy.hitbox, 2)
         pygame.draw.rect(self.window, C_DEBUG_BODY, self.player.hitbox, 2)
         tip = self.player.pos + self.player.facing * 40
         pygame.draw.line(self.window, C_DEBUG_BODY, self.player.pos, tip, 1)

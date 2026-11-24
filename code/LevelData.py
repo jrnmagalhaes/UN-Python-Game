@@ -75,7 +75,7 @@ LEVELS = [
         ],
         'enemies': [
             {'route': [(9, 1), (16, 1), (16, 3), (9, 3)], 'loop': True},
-            {'route': [(1, 5), (23, 5)], 'loop': False},
+            {'route': [(1, 6), (23, 6)], 'loop': False},
             {'route': [(8, 8), (12, 8), (12, 10), (8, 10)], 'loop': True},
             {'route': [(15, 8), (18, 8), (18, 10), (15, 10)], 'loop': True},
             {'route': [(23, 13), (1, 13)], 'loop': False, 'pause': 0.5},
