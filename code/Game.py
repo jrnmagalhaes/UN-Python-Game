@@ -2,6 +2,7 @@ import sys
 
 import pygame
 
+from code.Audio import Audio
 from code.Const import WIN_WIDTH, WIN_HEIGHT, WIN_TITLE, MENU_OPTION, LEVEL_COUNT, LEVEL_WIN
 from code.Level import Level
 from code.Menu import Menu
@@ -10,7 +11,9 @@ from code.Score import Score
 
 class Game:
     def __init__(self):
+        Audio.pre_init()
         pygame.init()
+        Audio.init()
         pygame.display.set_caption(WIN_TITLE)
         self.window = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 

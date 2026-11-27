@@ -3,10 +3,12 @@ from pygame.math import Vector2
 
 from code.Animation import Animation
 from code.Assets import load_frames
+from code.Audio import Audio
 from code.Const import (PLAYER_DIR, PLAYER_SCALE, PLAYER_BODY_PIVOT, PLAYER_HITBOX, PLAYER_SPEED, PLAYER_SLOW_SPEED,
                         PLAYER_ANIM_FPS, PLAYER_FEET_FPS, PLAYER_FEET_SLOW_FPS, PLAYER_ATTACK_FPS,
                         PLAYER_ATTACK_ACTIVE, PLAYER_ATTACK_COOLDOWN, PLAYER_ATTACK_REACH, PLAYER_ATTACK_SIZE,
-                        KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_SLOW, KEY_ATTACK, MOUSE_ATTACK)
+                        KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_SLOW, KEY_ATTACK, MOUSE_ATTACK,
+                        SFX_STEP, SFX_KNIFE, VOL_STEP, VOL_STEP_SLOW, VOL_SFX, STEP_INTERVAL, STEP_SLOW_INTERVAL)
 from code.Entity import Entity
 
 
@@ -33,6 +35,7 @@ class Player(Entity):
         self.attacking = False
         self.cooldown = 0.0
         self.attack_count = 0
+        self.step_timer = 0.0
 
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN and event.key in KEY_ATTACK:
@@ -46,6 +49,7 @@ class Player(Entity):
         self.attacking = True
         self.attack_count += 1
         self.body['attack'].reset()
+        Audio.play(SFX_KNIFE, VOL_SFX)
         return True
 
     def attack_hitbox(self):
@@ -71,6 +75,12 @@ class Player(Entity):
         if self.moving:
             direction.scale_to_length((PLAYER_SLOW_SPEED if slow else PLAYER_SPEED) * dt)
             self.move_and_collide(direction, self.solids)
+            self.step_timer -= dt
+            if self.step_timer <= 0:  # passo em intervalo fixo; devagar = mais espaçado e mais baixo
+                Audio.play(SFX_STEP, VOL_STEP_SLOW if slow else VOL_STEP)
+                self.step_timer = STEP_SLOW_INTERVAL if slow else STEP_INTERVAL
+        else:
+            self.step_timer = 0.0  # ao voltar a andar o primeiro passo soa na hora
         self.look_at(pygame.mouse.get_pos())
 
         feet = self.feet['walk' if self.moving else 'idle']

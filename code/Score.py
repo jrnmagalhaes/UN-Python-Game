@@ -5,7 +5,8 @@ import pygame
 
 from code.Const import (WIN_WIDTH, WIN_HEIGHT, FPS, MENU_BG, DB_PATH, DB_DATE_FORMAT, SCORE_DATE_FORMAT,
                         NAME_MAX_LEN, NAME_EXTRA_CHARS, C_WHITE, C_GRAY, C_BLOOD, C_YELLOW, C_PANEL, C_BG_DIM,
-                        FONT_NAME, KEY_BACK, KEY_CONFIRM)
+                        FONT_NAME, KEY_BACK, KEY_CONFIRM, MUSIC_MENU, SFX_WIN, VOL_SFX)
+from code.Audio import Audio
 from code.DBProxy import DBProxy
 from code.Level import format_time
 
@@ -35,6 +36,8 @@ class Score:
     def save_run(self, total_ms: int):
         name = ''
         warning = ''
+        Audio.stop_music()
+        Audio.play(SFX_WIN, VOL_SFX)
         pygame.key.start_text_input()  # letras chegam como TEXTINPUT (inclui acentos de teclas mortas)
         pygame.event.clear(pygame.TEXTINPUT)  # descarta letras digitadas ainda durante a fase
         while True:
@@ -66,10 +69,13 @@ class Score:
         db = DBProxy(self.db_path)
         runs = db.top10()
         db.close()
+        Audio.play_music(MUSIC_MENU)
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._quit()
+                if Audio.handle_event(event):
+                    continue
                 if event.type == pygame.KEYDOWN and (event.key in KEY_BACK or event.key in KEY_CONFIRM):
                     return
             self._draw_list(runs, highlight_id)
@@ -127,6 +133,7 @@ class Score:
             self._text(self.font_hint, warning, C_BLOOD, (WIN_WIDTH // 2, 420))
         self._text(self.font_hint, 'ENTER – Salvar      BACKSPACE – Apagar      ESC – Sair sem salvar',
                    C_GRAY, (WIN_WIDTH // 2, WIN_HEIGHT - 50))
+        Audio.draw_muted(self.window, (WIN_WIDTH - 12, 12))
 
     def _draw_list(self, runs: list, highlight_id: int):
         self.window.blit(self.background, (0, 0))
@@ -156,7 +163,8 @@ class Score:
         if highlight_id is not None and all(run[0] != highlight_id for run in runs):
             self._text(self.font_hint, 'Sua partida foi salva, mas ficou fora do top 10.', C_GRAY,
                        (WIN_WIDTH // 2, panel.bottom + 22))
-        self._text(self.font_hint, 'ESC – Voltar ao menu', C_GRAY, (WIN_WIDTH // 2, WIN_HEIGHT - 28))
+        self._text(self.font_hint, 'ESC – Voltar ao menu      M – Som', C_GRAY, (WIN_WIDTH // 2, WIN_HEIGHT - 28))
+        Audio.draw_muted(self.window, (WIN_WIDTH - 12, 12))
 
     def _text(self, font: pygame.font.Font, text: str, color, center: tuple):
         surf = font.render(text, True, color)

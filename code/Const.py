@@ -24,6 +24,7 @@ MENU_COMMANDS = (
     ('Espaço / Clique', 'Faca'),
     ('Shift', 'Andar devagar'),
     ('ESC', 'Voltar'),
+    ('M', 'Som liga/desliga'),
 )
 
 KEY_UP = (pygame.K_w, pygame.K_UP)
@@ -37,6 +38,7 @@ KEY_CONFIRM = (pygame.K_RETURN, pygame.K_KP_ENTER)
 KEY_BACK = (pygame.K_ESCAPE,)
 KEY_DEBUG_WIN = (pygame.K_n,)
 KEY_DEBUG_HITBOX = (pygame.K_h,)
+KEY_MUTE = (pygame.K_m,)
 
 TILE_SIZE = 40
 MAP_COLS = 25
@@ -118,3 +120,31 @@ SCORE_TOP = 10
 NAME_MAX_LEN = 8
 NAME_EXTRA_CHARS = ' -_'
 C_BG_DIM = (0, 0, 0, 175)
+
+SOUND_DIR = './assets/sounds'
+MUSIC_MENU = SOUND_DIR + '/menu-bgm.ogg'
+MUSIC_LEVEL = SOUND_DIR + '/fase-bgm.ogg'
+SFX_STEP = SOUND_DIR + '/step.ogg'
+SFX_KNIFE = SOUND_DIR + '/knife.wav'
+SFX_ENEMY_DEATH = SOUND_DIR + '/zombiedeath.wav'
+SFX_ENEMY_NOISE = SOUND_DIR + '/zombienoise.wav'
+SFX_SEEN = SOUND_DIR + '/seen.ogg'
+SFX_RESTART = SOUND_DIR + '/restart.ogg'
+SFX_LEVEL_CLEAR = SOUND_DIR + '/fase-success.ogg'
+SFX_WIN = SOUND_DIR + '/win.ogg'
+SFX_MENU_ITEM = SOUND_DIR + '/menu-item.ogg'
+VOL_MUSIC = 0.45
+VOL_SFX = 0.8
+VOL_UI = 0.6
+VOL_STEP = 0.5
+VOL_STEP_SLOW = 0.25
+VOL_ENEMY = 0.9
+SFX_GAIN = {SFX_STEP: 20.0}  # step.ogg foi gravado muito baixo (pico ~0,03): amplificado ao carregar
+STEP_INTERVAL = 0.32
+STEP_SLOW_INTERVAL = 0.6
+ENEMY_NOISE_INTERVAL = (4.0, 9.0)
+ENEMY_NOISE_RANGE = 450
+ENEMY_NOISE_PAN = 0.8
+MIXER_CHANNELS = 16
+MUSIC_FADE_MS = 400
+MSG_MUTED = 'SOM DESLIGADO (M)'

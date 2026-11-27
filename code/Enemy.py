@@ -7,7 +7,8 @@ from code.Animation import Animation
 from code.Assets import load_frames
 from code.Const import (ENEMY_DIR, ENEMY_SCALE, ENEMY_PIVOTS, ENEMY_HITBOX, ENEMY_SPEED, ENEMY_TURN_SPEED,
                         ENEMY_ALERT_TURN_SPEED, ENEMY_ANIM_FPS, ENEMY_ATTACK_FPS, ENEMY_FADE_TIME,
-                        VIEW_RANGE, VIEW_FOV, C_VIEW_CONE, C_VIEW_EDGE, C_VIEW_ALERT, C_BLOOD_STAIN)
+                        VIEW_RANGE, VIEW_FOV, C_VIEW_CONE, C_VIEW_EDGE, C_VIEW_ALERT, C_BLOOD_STAIN,
+                        ENEMY_NOISE_INTERVAL)
 from code.Entity import Entity
 
 STATE_WALK = 'walk'
@@ -43,6 +44,7 @@ class Enemy(Entity):
         self.alert_target = None
         self.last_hit_attack = 0
         self.stain = self._build_stain(seed)
+        self.noise_timer = random.uniform(*ENEMY_NOISE_INTERVAL)
         if len(self.points) > 1:
             self.angle = _angle_of(self.points[1] - self.pos)
             self.state = STATE_WALK
@@ -67,6 +69,16 @@ class Enemy(Entity):
         self.state = STATE_ALERT
         self.alert_target = Vector2(target)
         self.anims['attack'].reset()
+
+    def noise_due(self, dt: float) -> bool:
+        """True quando chega a hora de resmungar (intervalo aleatório em ENEMY_NOISE_INTERVAL)."""
+        if not self.alive:
+            return False
+        self.noise_timer -= dt
+        if self.noise_timer > 0:
+            return False
+        self.noise_timer = random.uniform(*ENEMY_NOISE_INTERVAL)
+        return True
 
     def turn_towards(self, angle: float, speed: float, dt: float) -> bool:
         diff = _angle_diff(angle, self.angle)

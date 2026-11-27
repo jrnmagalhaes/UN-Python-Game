@@ -2,11 +2,14 @@ import sys
 
 import pygame
 
+from code.Audio import Audio
 from code.Const import (WIN_WIDTH, C_BLACK, HUD_HEIGHT, FPS, MAX_DT, LEVEL_COUNT, LEVEL_WIN, LEVEL_QUIT, FONT_NAME,
                         C_WHITE, C_GRAY, C_YELLOW, C_BLOOD, C_PANEL, C_HUD_BG,
                         C_DEBUG_SOLID, C_DEBUG_BODY, C_DEBUG_ATTACK, C_DEBUG_ATTACK_IDLE, C_DEBUG_ENEMY, C_DEBUG_BACK,
                         BACKSTAB_ANGLE, PLAYER_ATTACK_REACH, SEEN_DELAY, CLEAR_DELAY, HINT_TIME,
-                        MSG_SEEN, MSG_CLEAR, MSG_FRONT, KEY_BACK, KEY_DEBUG_WIN, KEY_DEBUG_HITBOX)
+                        MSG_SEEN, MSG_CLEAR, MSG_FRONT, KEY_BACK, KEY_DEBUG_WIN, KEY_DEBUG_HITBOX,
+                        MUSIC_LEVEL, SFX_ENEMY_DEATH, SFX_ENEMY_NOISE, SFX_SEEN, SFX_RESTART, SFX_LEVEL_CLEAR,
+                        VOL_SFX, VOL_ENEMY)
 from code.Enemy import Enemy
 from code.LevelData import LEVELS
 from code.Mediator import Mediator
@@ -53,6 +56,7 @@ class Level:
         return sum(1 for e in self.enemies if e.alive)
 
     def run(self) -> str:
+        Audio.play_music(MUSIC_LEVEL)  # não reinicia se já tocava (fase anterior / reinício)
         self.clock.tick()
         self.dt = 0.0
         while True:
@@ -60,6 +64,8 @@ class Level:
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+                if Audio.handle_event(event):
+                    continue
                 if event.type == pygame.KEYDOWN:
                     if event.key in KEY_BACK:
                         return LEVEL_QUIT
@@ -85,11 +91,17 @@ class Level:
             for enemy in self.enemies:
                 enemy.update(dt)
             killed, blocked = Mediator.resolve_attack(self.player, self.enemies)
+            for _ in killed:
+                Audio.play(SFX_ENEMY_DEATH, VOL_SFX)
+            for enemy in self.enemies:
+                if enemy.noise_due(dt):
+                    Audio.play_at(SFX_ENEMY_NOISE, VOL_ENEMY, enemy.pos, self.player.pos)
             if blocked and not killed:
                 self.tip_timer = HINT_TIME
             if self.enemies_left == 0:
                 self.state = STATE_CLEAR
                 self.state_timer = CLEAR_DELAY
+                Audio.play(SFX_LEVEL_CLEAR, VOL_SFX)
                 return False
             watcher = Mediator.find_watcher(self.player, self.enemies)
             if watcher:
@@ -97,10 +109,12 @@ class Level:
                 self.watcher = watcher
                 self.state = STATE_SEEN
                 self.state_timer = SEEN_DELAY
+                Audio.play(SFX_SEEN, VOL_SFX)
         elif self.state == STATE_SEEN:
             self.watcher.update(dt)
             self.state_timer -= dt
             if self.state_timer <= 0:
+                Audio.play(SFX_RESTART, VOL_SFX)
                 self.reset()
         elif self.state == STATE_CLEAR:
             for enemy in self.enemies:
@@ -175,8 +189,9 @@ class Level:
         self._text(self.font_hud, f'TEMPO {total}', C_WHITE, (WIN_WIDTH // 2, y))
         enemy_surf = self.font_hud.render(f'INIMIGOS: {self.enemies_left}', True, C_WHITE)
         self.window.blit(enemy_surf, enemy_surf.get_rect(midright=(WIN_WIDTH - 16, y)))
-        hint = self.font_hint.render('ESC – Menu   N – Pular fase   H – Hitbox', True, C_GRAY)
+        hint = self.font_hint.render('ESC Menu   M Som   N Pular   H Hitbox', True, C_GRAY)
         self.window.blit(hint, hint.get_rect(midright=(enemy_surf.get_rect(midright=(WIN_WIDTH - 16, y)).left - 30, y)))
+        Audio.draw_muted(self.window, (self.tilemap.rect.right - 4, HUD_HEIGHT + 4))
 
     def _text(self, font: pygame.font.Font, text: str, color, center: tuple):
         surf = font.render(text, True, color)

@@ -2,9 +2,10 @@ import sys
 
 import pygame
 
+from code.Audio import Audio
 from code.Const import (WIN_WIDTH, WIN_HEIGHT, FPS, MENU_BG, MENU_OPTION, MENU_COMMANDS,
                         C_WHITE, C_GRAY, C_BLOOD, C_YELLOW, C_PANEL, FONT_NAME,
-                        KEY_UP, KEY_DOWN, KEY_CONFIRM)
+                        KEY_UP, KEY_DOWN, KEY_CONFIRM, MUSIC_MENU, SFX_MENU_ITEM, VOL_UI)
 
 
 class Menu:
@@ -18,23 +19,34 @@ class Menu:
         self.font_small = pygame.font.SysFont(FONT_NAME, 20)
         self.font_small_bold = pygame.font.SysFont(FONT_NAME, 20, bold=True)
         self.selected = 0
+        self.item_channel = None
 
     def run(self) -> str:
+        Audio.play_music(MUSIC_MENU)
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+                if Audio.handle_event(event):
+                    continue
                 if event.type == pygame.KEYDOWN:
                     if event.key in KEY_DOWN:
                         self.selected = (self.selected + 1) % len(MENU_OPTION)
+                        self._click()
                     elif event.key in KEY_UP:
                         self.selected = (self.selected - 1) % len(MENU_OPTION)
+                        self._click()
                     elif event.key in KEY_CONFIRM:
+                        self._click()
                         return MENU_OPTION[self.selected]
             self.draw()
             pygame.display.flip()
             self.clock.tick(FPS)
+
+    def _click(self):
+        Audio.stop(self.item_channel)  # não empilha o som ao navegar rápido
+        self.item_channel = Audio.play(SFX_MENU_ITEM, VOL_UI)
 
     def draw(self):
         self.window.blit(self.background, (0, 0))
@@ -60,6 +72,7 @@ class Menu:
             self.window.blit(key_surf, key_surf.get_rect(midright=(panel_rect.centerx - 15, y)))
             act_surf = self.font_small.render(f'–  {action}', True, C_GRAY)
             self.window.blit(act_surf, act_surf.get_rect(midleft=(panel_rect.centerx - 5, y)))
+        Audio.draw_muted(self.window, (WIN_WIDTH - 12, 12))
 
     def _text(self, font: pygame.font.Font, text: str, color, center: tuple):
         surf = font.render(text, True, color)
